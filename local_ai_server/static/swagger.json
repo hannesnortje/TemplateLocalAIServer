@@ -1,0 +1,1365 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Local AI Server API",
+    "description": "API for Local AI Server - Run local language models with OpenAI-compatible endpoints",
+    "version": "0.1.0",
+    "contact": {
+      "name": "GitHub Repository",
+      "url": "https://github.com/hannesnortje/LocalAIServer"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Current server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "openai",
+      "description": "OpenAI-compatible endpoints"
+    },
+    {
+      "name": "models",
+      "description": "Model management"
+    },
+    {
+      "name": "documents",
+      "description": "Document management for RAG"
+    },
+    {
+      "name": "rag",
+      "description": "Retrieval-Augmented Generation"
+    },
+    {
+      "name": "history",
+      "description": "Response history management"
+    },
+    {
+      "name": "system",
+      "description": "System management"
+    },
+    {
+      "name": "web",
+      "description": "Web search and scraping capabilities"
+    }
+  ],
+  "paths": {
+    "/v1/models": {
+      "get": {
+        "tags": ["openai", "models"],
+        "summary": "List available models",
+        "description": "List all installed models in OpenAI format",
+        "operationId": "listModels",
+        "responses": {
+          "200": {
+            "description": "List of available models",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {"type": "string"},
+                          "object": {"type": "string"},
+                          "owned_by": {"type": "string"},
+                          "type": {"type": "string"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/chat/completions": {
+      "post": {
+        "tags": ["openai"],
+        "summary": "Create chat completion",
+        "description": "Create a completion for a chat conversation",
+        "operationId": "createChatCompletion",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["model", "messages"],
+                "properties": {
+                  "model": {
+                    "type": "string",
+                    "description": "ID of the model to use"
+                  },
+                  "messages": {
+                    "type": "array",
+                    "description": "A list of messages comprising the conversation so far",
+                    "items": {
+                      "type": "object",
+                      "required": ["role", "content"],
+                      "properties": {
+                        "role": {
+                          "type": "string",
+                          "description": "The role of the message author",
+                          "enum": ["system", "user", "assistant"]
+                        },
+                        "content": {
+                          "type": "string",
+                          "description": "The content of the message"
+                        }
+                      }
+                    }
+                  },
+                  "temperature": {
+                    "type": "number",
+                    "description": "Sampling temperature between 0 and 2",
+                    "default": 0.7
+                  },
+                  "max_tokens": {
+                    "type": "integer",
+                    "description": "Maximum number of tokens to generate",
+                    "default": 100
+                  },
+                  "stream": {
+                    "type": "boolean",
+                    "description": "Whether to stream the response",
+                    "default": false
+                  },
+                  "use_retrieval": {
+                    "type": "boolean",
+                    "description": "Whether to use RAG (Retrieval-Augmented Generation)",
+                    "default": false
+                  },
+                  "search_params": {
+                    "type": "object",
+                    "description": "Parameters for document retrieval when using RAG",
+                    "properties": {
+                      "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of documents to retrieve",
+                        "default": 4
+                      },
+                      "filter": {
+                        "type": "object",
+                        "description": "Filter to apply to document search",
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Chat completion generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {"type": "string"},
+                    "object": {"type": "string"},
+                    "created": {"type": "integer"},
+                    "model": {"type": "string"},
+                    "choices": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "index": {"type": "integer"},
+                          "message": {
+                            "type": "object",
+                            "properties": {
+                              "role": {"type": "string"},
+                              "content": {"type": "string"}
+                            }
+                          },
+                          "finish_reason": {"type": "string"}
+                        }
+                      }
+                    },
+                    "usage": {
+                      "type": "object",
+                      "properties": {
+                        "prompt_tokens": {"type": "integer"},
+                        "completion_tokens": {"type": "integer"},
+                        "total_tokens": {"type": "integer"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Bad request"},
+          "500": {"description": "Internal server error"}
+        }
+      }
+    },
+    "/v1/completions": {
+      "post": {
+        "tags": ["openai"],
+        "summary": "Create text completion",
+        "description": "Create a completion for a text prompt",
+        "operationId": "createCompletion",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["model", "prompt"],
+                "properties": {
+                  "model": {
+                    "type": "string",
+                    "description": "ID of the model to use"
+                  },
+                  "prompt": {
+                    "type": "string",
+                    "description": "Text prompt to complete"
+                  },
+                  "temperature": {
+                    "type": "number",
+                    "description": "Sampling temperature between 0 and 2",
+                    "default": 0.7
+                  },
+                  "max_tokens": {
+                    "type": "integer",
+                    "description": "Maximum number of tokens to generate",
+                    "default": 100
+                  },
+                  "stream": {
+                    "type": "boolean",
+                    "description": "Whether to stream the response",
+                    "default": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Text completion generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {"type": "string"},
+                    "object": {"type": "string"},
+                    "created": {"type": "integer"},
+                    "model": {"type": "string"},
+                    "choices": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "text": {"type": "string"},
+                          "index": {"type": "integer"},
+                          "finish_reason": {"type": "string"},
+                          "logprobs": {"type": "null"}
+                        }
+                      }
+                    },
+                    "usage": {
+                      "type": "object",
+                      "properties": {
+                        "prompt_tokens": {"type": "integer"},
+                        "completion_tokens": {"type": "integer"},
+                        "total_tokens": {"type": "integer"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Bad request"},
+          "500": {"description": "Internal server error"}
+        }
+      }
+    },
+    "/v1/embeddings": {
+      "post": {
+        "tags": ["openai"],
+        "summary": "Create embeddings",
+        "description": "Create vector embeddings from input text",
+        "operationId": "createEmbeddings",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["input"],
+                "properties": {
+                  "input": {
+                    "oneOf": [
+                      {"type": "string"},
+                      {"type": "array", "items": {"type": "string"}}
+                    ],
+                    "description": "Input text to embed (string or array of strings)"
+                  },
+                  "model": {
+                    "type": "string",
+                    "description": "ID of the model to use (ignored, uses preset embedding model)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Embeddings generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "object": {"type": "string"},
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "object": {"type": "string"},
+                          "embedding": {
+                            "type": "array",
+                            "items": {"type": "number"}
+                          },
+                          "index": {"type": "integer"}
+                        }
+                      }
+                    },
+                    "model": {"type": "string"},
+                    "usage": {
+                      "type": "object",
+                      "properties": {
+                        "prompt_tokens": {"type": "integer"},
+                        "total_tokens": {"type": "integer"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Bad request"},
+          "500": {"description": "Internal server error"}
+        }
+      }
+    },
+    "/v1/rag": {
+      "post": {
+        "tags": ["rag", "openai"],
+        "summary": "Generate response with RAG",
+        "description": "Generate a response using Retrieval-Augmented Generation in OpenAI format",
+        "operationId": "ragCompletion",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["query", "model"],
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "The query to answer"
+                  },
+                  "model": {
+                    "type": "string",
+                    "description": "ID of the model to use"
+                  },
+                  "use_history": {
+                    "type": "boolean",
+                    "description": "Whether to use response history",
+                    "default": true
+                  },
+                  "search_params": {
+                    "type": "object",
+                    "description": "Parameters for document retrieval",
+                    "properties": {
+                      "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of documents to retrieve",
+                        "default": 4
+                      },
+                      "filter": {
+                        "type": "object",
+                        "description": "Filter to apply to document search",
+                        "additionalProperties": true
+                      }
+                    }
+                  },
+                  "temperature": {
+                    "type": "number",
+                    "description": "Sampling temperature between 0 and 2",
+                    "default": 0.7
+                  },
+                  "max_tokens": {
+                    "type": "integer",
+                    "description": "Maximum number of tokens to generate",
+                    "default": 100
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "RAG response generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {"type": "string"},
+                    "object": {"type": "string"},
+                    "created": {"type": "integer"},
+                    "model": {"type": "string"},
+                    "answer": {"type": "string"},
+                    "retrieved_documents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "text": {"type": "string"},
+                          "metadata": {"type": "object"},
+                          "score": {"type": "number"}
+                        }
+                      }
+                    },
+                    "history_items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "query": {"type": "string"},
+                          "response": {"type": "string"},
+                          "metadata": {"type": "object"}
+                        }
+                      }
+                    },
+                    "metadata": {"type": "object"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Bad request"},
+          "500": {"description": "Internal server error"}
+        }
+      }
+    },
+    "/api/rag": {
+      "post": {
+        "tags": ["rag"],
+        "summary": "Generate response with RAG (custom endpoint)",
+        "description": "Generate a response using Retrieval-Augmented Generation with custom format",
+        "operationId": "apiRag",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["query", "model"],
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "The query to answer"
+                  },
+                  "model": {
+                    "type": "string",
+                    "description": "ID of the model to use"
+                  },
+                  "use_history": {
+                    "type": "boolean",
+                    "description": "Whether to use response history",
+                    "default": true
+                  },
+                  "search_params": {
+                    "type": "object",
+                    "description": "Parameters for document retrieval",
+                    "properties": {
+                      "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of documents to retrieve",
+                        "default": 4
+                      },
+                      "filter": {
+                        "type": "object",
+                        "description": "Filter to apply to document search",
+                        "additionalProperties": true
+                      },
+                      "user_id": {
+                        "type": "string",
+                        "description": "User ID for filtering history"
+                      }
+                    }
+                  },
+                  "temperature": {
+                    "type": "number",
+                    "description": "Sampling temperature between 0 and 2",
+                    "default": 0.7
+                  },
+                  "max_tokens": {
+                    "type": "integer",
+                    "description": "Maximum number of tokens to generate",
+                    "default": 100
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "RAG response generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "answer": {"type": "string"},
+                    "model": {"type": "string"},
+                    "retrieved_documents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "text": {"type": "string"},
+                          "metadata": {"type": "object"},
+                          "score": {"type": "number"}
+                        }
+                      }
+                    },
+                    "metadata": {"type": "object"},
+                    "history_items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "query": {"type": "string"},
+                          "response": {"type": "string"},
+                          "metadata": {"type": "object"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Bad request"},
+          "500": {"description": "Internal server error"}
+        }
+      }
+    },
+    "/api/documents": {
+      "post": {
+        "tags": ["documents"],
+        "summary": "Add documents to vector store",
+        "description": "Add documents and their metadata to the vector store for RAG",
+        "operationId": "addDocuments",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["texts"],
+                "properties": {
+                  "texts": {
+                    "type": "array",
+                    "description": "List of document texts to add",
+                    "items": {"type": "string"}
+                  },
+                  "metadata": {
+                    "type": "array",
+                    "description": "Metadata for each document (must match length of texts)",
+                    "items": {"type": "object"}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Documents added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {"type": "string"},
+                    "ids": {
+                      "type": "array", 
+                      "items": {"type": "string"}
+                    },
+                    "count": {"type": "integer"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Bad request"},
+          "500": {"description": "Internal server error"}
+        }
+      },
+      "delete": {
+        "tags": ["documents"],
+        "summary": "Delete documents",
+        "description": "Delete documents from the vector store by ID",
+        "operationId": "deleteDocuments",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["ids"],
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "description": "List of document IDs to delete",
+                    "items": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Documents deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {"type": "string"},
+                    "message": {"type": "string"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Bad request"},
+          "500": {"description": "Internal server error"}
+        }
+      }
+    },
+    "/api/search": {
+      "post": {
+        "tags": ["documents"],
+        "summary": "Search documents",
+        "description": "Search for similar documents in the vector store",
+        "operationId": "searchDocuments",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["query"],
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "Search query"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "description": "Maximum number of results to return",
+                    "default": 4
+                  },
+                  "filter": {
+                    "type": "object",
+                    "description": "Filter to apply to search",
+                    "additionalProperties": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {"type": "string"},
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "text": {"type": "string"},
+                          "metadata": {"type": "object"},
+                          "score": {"type": "number"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Bad request"},
+          "500": {"description": "Internal server error"}
+        }
+      }
+    },
+    "/api/available-models": {
+      "get": {
+        "tags": ["models"],
+        "summary": "Get available models",
+        "description": "Get list of models available for download",
+        "operationId": "getAvailableModels",
+        "responses": {
+          "200": {
+            "description": "List of available models",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "name": {"type": "string"},
+                      "description": {"type": "string"},
+                      "size": {"type": "string"},
+                      "type": {"type": "string"},
+                      "context_window": {"type": "integer"},
+                      "url": {"type": "string"}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/models/all": {
+      "get": {
+        "tags": ["models"],
+        "summary": "Get all models",
+        "description": "Get list of all models including their status",
+        "operationId": "getAllModels",
+        "responses": {
+          "200": {
+            "description": "List of all models",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {"type": "string"},
+                      "type": {"type": "string"},
+                      "loaded": {"type": "boolean"},
+                      "context_size": {"type": "integer"},
+                      "description": {"type": "string"},
+                      "custom_upload": {"type": "boolean"}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/download-model/{model_id}": {
+      "post": {
+        "tags": ["models"],
+        "summary": "Download a model",
+        "description": "Download a model with progress streaming",
+        "operationId": "downloadModel",
+        "parameters": [
+          {
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Model download stream",
+            "content": {
+              "application/x-ndjson": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {"description": "Model not found"},
+          "500": {"description": "Internal server error"}
+        }
+      }
+    },
+    "/api/models/{model_id}": {
+      "delete": {
+        "tags": ["models"],
+        "summary": "Delete a model",
+        "description": "Delete a model by ID",
+        "operationId": "deleteModel",
+        "parameters": [
+          {
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Model deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {"type": "string"},
+                    "message": {"type": "string"}
+                  }
+                }
+              }
+            }
+          },
+          "404": {"description": "Model not found"},
+          "500": {"description": "Internal server error"}
+        }
+      }
+    },
+    "/api/models/upload": {
+      "post": {
+        "tags": ["models"],
+        "summary": "Upload a model",
+        "description": "Upload a model file",
+        "operationId": "uploadModel",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["model_file"],
+                "properties": {
+                  "model_file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Model file to upload"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Model uploaded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {"type": "string"},
+                    "message": {"type": "string"},
+                    "model_id": {"type": "string"},
+                    "model_path": {"type": "string"},
+                    "model_info": {"type": "object"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Bad request"},
+          "500": {"description": "Internal server error"}
+        }
+      }
+    },
+    "/api/history": {
+      "get": {
+        "tags": ["history"],
+        "summary": "Search response history",
+        "description": "Search for similar responses in history",
+        "operationId": "searchHistory",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Search query",
+            "schema": {"type": "string"}
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of results",
+            "schema": {"type": "integer", "default": 10}
+          },
+          {
+            "name": "min_score",
+            "in": "query",
+            "description": "Minimum similarity score",
+            "schema": {"type": "number", "default": 0.7}
+          },
+          {
+            "name": "filter.user_id",
+            "in": "query",
+            "description": "Filter by user ID",
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {"type": "string"},
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "query": {"type": "string"},
+                          "response": {"type": "string"},
+                          "metadata": {"type": "object"},
+                          "similarity": {"type": "number"}
+                        }
+                      }
+                    },
+                    "count": {"type": "integer"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Bad request"},
+          "500": {"description": "Internal server error"}
+        }
+      }
+    },
+    "/api/history/clean": {
+      "post": {
+        "tags": ["history"],
+        "summary": "Clean old history entries",
+        "description": "Clean up history entries older than specified days",
+        "operationId": "cleanHistory",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "days": {
+                    "type": "integer",
+                    "description": "Number of days to keep",
+                    "default": 30
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "History cleaned successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {"type": "string"},
+                    "message": {"type": "string"},
+                    "count": {"type": "integer"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Bad request"},
+          "500": {"description": "Internal server error"}
+        }
+      }
+    },
+    "/api/history/clear": {
+      "post": {
+        "tags": ["history"],
+        "summary": "Clear all history",
+        "description": "Delete all response history",
+        "operationId": "clearHistory",
+        "responses": {
+          "200": {
+            "description": "History cleared successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {"type": "string"},
+                    "message": {"type": "string"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Bad request"},
+          "500": {"description": "Internal server error"}
+        }
+      }
+    },
+    "/api/history/status": {
+      "get": {
+        "tags": ["history"],
+        "summary": "Get history status",
+        "description": "Check if response history is enabled",
+        "operationId": "historyStatus",
+        "responses": {
+          "200": {
+            "description": "History status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {"type": "boolean"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/history/get_for_user": {
+      "get": {
+        "tags": ["history"],
+        "summary": "Get user history",
+        "description": "Get all history for a specific user",
+        "operationId": "getUserHistory",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "description": "User ID (if not provided, uses current user)",
+            "schema": {"type": "string"}
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of items to return",
+            "schema": {"type": "integer", "default": 20}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {"type": "string"},
+                    "user_id": {"type": "string"},
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "query": {"type": "string"},
+                          "response": {"type": "string"},
+                          "metadata": {"type": "object"}
+                        }
+                      }
+                    },
+                    "count": {"type": "integer"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Bad request"},
+          "500": {"description": "Internal server error"}
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": ["system"],
+        "summary": "Server health check",
+        "description": "Check if the server is running correctly",
+        "operationId": "healthCheck",
+        "responses": {
+          "200": {
+            "description": "Server is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {"type": "string"},
+                    "version": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scrape": {
+      "get": {
+        "tags": ["web"],
+        "summary": "Scrape web content",
+        "description": "Search the web for content based on a query and optionally save results to the vector database. Requires explicit consent for EU compliance.",
+        "operationId": "scrapeWeb",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "description": "The search query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "explicit_consent",
+            "in": "query",
+            "required": true,
+            "description": "Explicit consent to data processing (required for EU compliance)",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "privacy_policy_url",
+            "in": "query",
+            "required": false,
+            "description": "URL to the privacy policy document",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "engine",
+            "in": "query",
+            "required": false,
+            "description": "Search engine to use",
+            "schema": {
+              "type": "string",
+              "enum": ["google", "bing"],
+              "default": "google"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "required": false,
+            "description": "Number of search results to return",
+            "schema": {
+              "type": "integer",
+              "default": 5
+            }
+          },
+          {
+            "name": "fetch_content",
+            "in": "query",
+            "required": false,
+            "description": "Whether to fetch full content from each result page",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "timeout",
+            "in": "query",
+            "required": false,
+            "description": "Maximum wait time in seconds",
+            "schema": {
+              "type": "integer",
+              "default": 30
+            }
+          },
+          {
+            "name": "headless",
+            "in": "query",
+            "required": false,
+            "description": "Whether to run browser in headless mode",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          {
+            "name": "save_to_db",
+            "in": "query",
+            "required": false,
+            "description": "Whether to save results to vector database",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "query": {
+                      "type": "string",
+                      "description": "The original search query"
+                    },
+                    "engine": {
+                      "type": "string",
+                      "description": "The search engine used"
+                    },
+                    "results": {
+                      "type": "array",
+                      "description": "List of search results",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "title": {
+                            "type": "string",
+                            "description": "Title of the search result"
+                          },
+                          "url": {
+                            "type": "string",
+                            "description": "URL of the search result"
+                          },
+                          "snippet": {
+                            "type": "string",
+                            "description": "Snippet or description from the search result"
+                          },
+                          "content": {
+                            "type": "string",
+                            "description": "Full content of the page (only if fetch_content=true)"
+                          }
+                        }
+                      }
+                    },
+                    "count": {
+                      "type": "integer",
+                      "description": "Number of results returned"
+                    },
+                    "timestamp": {
+                      "type": "number",
+                      "description": "Timestamp of when the search was performed"
+                    },
+                    "explicit_consent": {
+                      "type": "boolean",
+                      "description": "Whether explicit consent was provided"
+                    },
+                    "consent_timestamp": {
+                      "type": "string",
+                      "description": "Timestamp when consent was given"
+                    },
+                    "privacy_policy_url": {
+                      "type": "string",
+                      "description": "URL to the privacy policy"
+                    },
+                    "saved_to_db": {
+                      "type": "boolean",
+                      "description": "Whether the results were saved to the vector database"
+                    },
+                    "saved_document_ids": {
+                      "type": "array",
+                      "description": "IDs of documents saved to the vector database (if save_to_db=true)",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "403": {
+            "description": "Consent required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "Error message"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Detailed message about consent requirements"
+                    },
+                    "consent_required": {
+                      "type": "boolean",
+                      "description": "Indicates that explicit consent is required"
+                    },
+                    "privacy_policy_url": {
+                      "type": "string",
+                      "description": "URL to the privacy policy that should be reviewed"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error message"
+          }
+        }
+      }
+    }
+  }
+}

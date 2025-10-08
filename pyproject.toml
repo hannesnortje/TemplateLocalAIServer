@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "local_ai_server"
+version = "0.1.0"
+description = "A local server that provides OpenAI-compatible endpoints for language models"
+readme = "README.md"
+license = "MIT"
+authors = [
+    {name = "Local AI Server Contributors"}
+]
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12"
+]
+dependencies = [
+    "transformers>=4.0.0",
+    "torch>=2.0.0",
+    "llama-cpp-python[server]==0.2.27",
+    "pyOpenSSL>=23.0.0",
+    "cryptography>=41.0.0",
+    "flask>=2.0.0",
+    "werkzeug>=2.0.0",
+    "flask-swagger-ui>=3.36.0",
+    "requests>=2.25.0",
+    "waitress>=2.1.0",
+    "click>=8.0.0",
+    "qdrant-client>=1.7.0",
+    "sentence-transformers>=2.2.2",
+    "chromadb>=0.4.22",  # Add Chroma as a dependency
+    "selenium>=4.9.0",
+    "webdriver-manager>=3.8.6"
+]
+
+[project.scripts]
+local-ai-server = "local_ai_server.cli:cli"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+include-package-data = true
+
+[tool.setuptools.package-data]
+local_ai_server = [
+    "static/*",
+    "models/.gitkeep",
+    "ssl/.gitkeep",
+    "storage/vectors/.gitkeep"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["local_ai_server*"]
